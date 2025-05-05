@@ -1,17 +1,23 @@
+// src/index.js
 import React from 'react';
-import ReactDOM from 'react-dom/client';
-import './index.css';
+import { createRoot } from 'react-dom/client';            // React 18 API
+import { PublicClientApplication } from '@azure/msal-browser';
+import { MsalProvider } from '@azure/msal-react';
 import App from './App';
-import reportWebVitals from './reportWebVitals';
+import { msalConfig } from './msalConfig';
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+const msalInstance = new PublicClientApplication(msalConfig);
 
-// If you want to start measuring performance in your app, pass a function
-// to log results (for example: reportWebVitals(console.log))
-// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
-reportWebVitals();
+// Wait for MSAL to initialize before mounting the React tree
+msalInstance.initialize().then(() => {
+  const container = document.getElementById('root');
+  const root = createRoot(container);
+
+  root.render(
+    <MsalProvider instance={msalInstance}>
+      <App />
+    </MsalProvider>
+  );
+}).catch(err => {
+  console.error("MSAL initialization failed:", err);
+});
