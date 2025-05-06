@@ -12,7 +12,7 @@ export default function App() {
 
   // UI state
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activePage, setActivePage] = useState('fetch');   // 'fetch' or 'candidates'
+  const [activePage, setActivePage] = useState('fetch');
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState(null);
 
@@ -26,12 +26,14 @@ export default function App() {
   }, [accounts, instance]);
 
   const handleLogin = () => {
-    instance.loginPopup({
-      scopes: ['User.Read', 'Files.Read', 'Sites.Read.All']
-    }).then(resp => {
-      instance.setActiveAccount(resp.account);
-      return api.getAccessToken(instance, resp.account);
-    }).then(setToken).catch(console.error);
+    instance
+      .loginPopup({ scopes: ['User.Read','Files.Read','Sites.Read.All'] })
+      .then(resp => {
+        instance.setActiveAccount(resp.account);
+        return api.getAccessToken(instance, resp.account);
+      })
+      .then(setToken)
+      .catch(console.error);
   };
 
   const handleLogout = () => {
@@ -39,7 +41,6 @@ export default function App() {
     setToken(null);
   };
 
-  // Search candidates and switch to candidates view
   const handleSearch = async (keyword) => {
     if (!keyword.trim()) return;
     const results = await api.searchCandidatesApi(token, keyword);
@@ -47,7 +48,6 @@ export default function App() {
     setActivePage('candidates');
   };
 
-  // If not logged in, show only Login button
   if (accounts.length === 0) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50">
@@ -62,21 +62,20 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-100">
-
-      {/* Sidebar Drawer */}
+    <div className="flex h-screen">
+      {/* Sidebar is now a flex item */}
       <Sidebar
         isOpen={sidebarOpen}
-        onToggleSidebar={() => setSidebarOpen(o => !o)}
+        onToggle={() => setSidebarOpen(o => !o)}
         activePage={activePage}
-        onNavigate={(page) => {
+        onNavigate={page => {
           setActivePage(page);
           if (page === 'candidates') setSearchResults(null);
         }}
       />
 
-      {/* Main Area */}
-      <div className="flex-1 flex flex-col">
+      {/* Main content flexes and shifts automatically */}
+      <div className="flex-1 flex flex-col transition-all duration-200">
         <Navbar
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen(o => !o)}
@@ -87,15 +86,10 @@ export default function App() {
           username={accounts[0].username}
         />
 
-        <main className="flex-1 overflow-auto p-6">
-          {activePage === 'fetch' && token && (
-            <FetchPanel token={token} />
-          )}
+        <main className="flex-1 overflow-auto p-6 bg-gray-50">
+          {activePage === 'fetch' && token && <FetchPanel token={token} />}
           {activePage === 'candidates' && token && (
-            <CandidateTable
-              token={token}
-              searchResults={searchResults}
-            />
+            <CandidateTable token={token} searchResults={searchResults} />
           )}
         </main>
       </div>
