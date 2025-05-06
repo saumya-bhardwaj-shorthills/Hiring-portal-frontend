@@ -56,7 +56,7 @@ export default function FetchPanel({ token }) {
       setStatusMap({ ...newStatus });
       try {
         // reuse your existing parseResumeApi
-        await api.parseResumeApi(token, site.site_id, site.drive_id, f.id);
+        const cand = await api.parseResumeApi(token, site.site_id, site.drive_id, f.id);
         newStatus[f.id] = 'done';
       } catch {
         newStatus[f.id] = 'error';

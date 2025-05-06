@@ -31,7 +31,7 @@ export const parseResumeApi = (token, siteId, driveId, fileId) =>
   axios.post("http://localhost:8000/api/parse-resume/", 
     { file_id: fileId, site_id: siteId, drive_id: driveId },
     { headers: { Authorization: `Bearer ${token}` } }
-  ).then(r => r.data.parsed);
+  ).then(r => r.data);
 
 export const getAllCandidates = (token) =>
   axios.get("http://localhost:8000/api/candidates/", {
