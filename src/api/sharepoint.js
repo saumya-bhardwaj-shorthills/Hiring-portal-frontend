@@ -43,3 +43,18 @@ export const searchCandidatesApi = (token, keyword) =>
     headers: { Authorization: `Bearer ${token}` },
     params: { keyword }
   }).then(r => r.data.results);
+
+export const listSites = (token) =>
+  axios.get("http://localhost:8000/api/sites/", {
+    headers: { Authorization: `Bearer ${token}` },
+  }).then(r => r.data);
+
+export const addSite = (token, siteUrl) =>
+  axios.post("http://localhost:8000/api/sites/", { site_url: siteUrl }, {
+    headers: { Authorization: `Bearer ${token}` },
+  }).then(r => r.data);
+
+export const fetchSiteResumes = (token, sitePk) =>
+  axios.get(`http://localhost:8000/api/sites/${sitePk}/resumes/`, {
+    headers: { Authorization: `Bearer ${token}` },
+  }).then(r => r.data);

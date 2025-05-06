@@ -1,74 +1,115 @@
 // src/components/FetchPanel.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import * as api from '../api/sharepoint';
 
 export default function FetchPanel({ token }) {
-  const [siteUrl, setSiteUrl] = useState('');
+  const [sites, setSites] = useState([]);
+  const [selected, setSelected] = useState('');   // '' | 'new' | sitePk
+  const [newUrl, setNewUrl] = useState('');
   const [files, setFiles] = useState([]);
   const [statusMap, setStatusMap] = useState({});
-  const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleFetch = async () => {
-    setLoading(true);
-    setMsg('');
-    try {
-      const siteId = await api.getSiteId(token, siteUrl);
-      const drives = await api.getDrives(token, siteId);
-      const drive = drives.find(d => d.name === 'Documents') || drives[0];
-      const docs = await api.fetchResumes(token, siteId, drive.id);
-      setFiles(docs);
-      setMsg(`Fetched ${docs.length} files`);
-    } catch {
-      setMsg('Error fetching documents');
+  // load saved sites on mount
+  useEffect(() => {
+    api.listSites(token).then(setSites);
+  }, [token]);
+
+  // handle selecting an existing site
+  useEffect(() => {
+    if (selected && selected !== 'new') {
+      setFiles([]); setStatusMap({}); setMsg('');
+      setLoading(true);
+      api.fetchSiteResumes(token, selected)
+        .then(fs => {
+          setFiles(fs);
+          setMsg(`Found ${fs.length} unparsed resumes`);
+        })
+        .catch(() => setMsg('Error fetching resumes'))
+        .finally(() => setLoading(false));
     }
-    setLoading(false);
+  }, [selected, token]);
+
+  const handleAddSite = async () => {
+    if (!newUrl.trim()) return;
+    setLoading(true); setMsg('');
+    try {
+      const site = await api.addSite(token, newUrl);
+      setSites(prev => [...prev, site]);
+      setSelected(site.id.toString());
+      setNewUrl('');
+    } catch {
+      setMsg('Error adding site');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleParseAll = async () => {
-    setMsg('');
-    const siteId = await api.getSiteId(token, siteUrl);
-    const drives = await api.getDrives(token, siteId);
-    const drive = drives.find(d => d.name === 'Documents') || drives[0];
+    if (!selected || selected === 'new') return;
+    setLoading(true);
+    const site = sites.find(s => s.id.toString() === selected);
     const newStatus = {};
-    for (const file of files) {
-      newStatus[file.id] = 'parsing';
+    for (const f of files) {
+      newStatus[f.id] = 'parsing';
       setStatusMap({ ...newStatus });
       try {
-        await api.parseResumeApi(token, siteId, drive.id, file.id);
-        newStatus[file.id] = 'done';
+        // reuse your existing parseResumeApi
+        await api.parseResumeApi(token, site.site_id, site.drive_id, f.id);
+        newStatus[f.id] = 'done';
       } catch {
-        newStatus[file.id] = 'error';
+        newStatus[f.id] = 'error';
       }
       setStatusMap({ ...newStatus });
     }
     setMsg('Parsing complete');
+    setLoading(false);
   };
 
   return (
     <div className="p-4 space-y-4">
-      <div className="flex space-x-2">
-        <input
-          className="flex-1 p-2 border rounded"
-          type="text"
-          placeholder="https://yourdomain.sharepoint.com/sites/HR"
-          value={siteUrl}
-          onChange={e => setSiteUrl(e.target.value)}
-        />
-        <button
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          onClick={handleFetch}
-          disabled={loading || !siteUrl}
+
+      {/* Site selector */}
+      <div className="flex items-center space-x-2">
+        <select
+          className="p-2 border flex-1"
+          value={selected}
+          onChange={e => setSelected(e.target.value)}
         >
-          Fetch
-        </button>
+          <option value="">-- Choose site --</option>
+          <option value="new">+ Add new site</option>
+          {sites.map(s => (
+            <option key={s.id} value={s.id}>{s.site_url}</option>
+          ))}
+        </select>
+
+        {selected === 'new' && (
+          <>
+            <input
+              className="flex-1 p-2 border"
+              type="text"
+              placeholder="Paste SharePoint URL"
+              value={newUrl}
+              onChange={e => setNewUrl(e.target.value)}
+            />
+            <button
+              onClick={handleAddSite}
+              disabled={loading}
+              className="px-4 py-2 bg-green-600 text-white rounded"
+            >
+              Save Site
+            </button>
+          </>
+        )}
       </div>
 
-      {files.length > 0 && (
+      {/* Parse All button */}
+      {selected && selected !== 'new' && files.length > 0 && (
         <button
-          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
           onClick={handleParseAll}
           disabled={loading}
+          className="px-4 py-2 bg-blue-600 text-white rounded"
         >
           Parse All
         </button>
@@ -76,13 +117,12 @@ export default function FetchPanel({ token }) {
 
       {msg && <p className="text-gray-700">{msg}</p>}
 
+      {/* Resume list */}
       <ul className="space-y-2">
         {files.map(f => (
           <li key={f.id} className="p-2 border rounded flex justify-between">
             <span>{f.name}</span>
-            <span className="italic">
-              {statusMap[f.id] || 'idle'}
-            </span>
+            <span className="italic">{statusMap[f.id] || 'idle'}</span>
           </li>
         ))}
       </ul>
