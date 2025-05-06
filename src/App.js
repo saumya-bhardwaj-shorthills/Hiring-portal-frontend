@@ -1,35 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
-import LoginControl from './components/LoginControl';
+import Navbar from './components/Navbar';
+import Sidebar from './components/Sidebar';
 import FetchPanel from './components/FetchPanel';
-import SearchPanel from './components/SearchPanel';
-import { getAccessToken } from './api/sharepoint';
+import CandidateTable from './components/CandidateTable';
+import * as api from './api/sharepoint';
 
 export default function App() {
   const { instance, accounts } = useMsal();
   const [token, setToken] = useState(null);
-  const [activePanel, setActivePanel] = useState('fetch');
 
-  // When user logs in, set active account and fetch token
+  // UI state
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activePage, setActivePage] = useState('fetch');   // 'fetch' or 'candidates'
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState(null);
+
+  // Acquire token on login
   useEffect(() => {
     if (accounts.length > 0) {
       const acct = accounts[0];
       instance.setActiveAccount(acct);
-      getAccessToken(instance, acct).then(setToken);
+      api.getAccessToken(instance, acct).then(setToken);
     }
   }, [accounts, instance]);
 
   const handleLogin = () => {
-    instance
-      .loginPopup({
-        scopes: ['User.Read', 'Files.Read', 'Sites.Read.All']
-      })
-      .then(resp => {
-        instance.setActiveAccount(resp.account);
-        return getAccessToken(instance, resp.account);
-      })
-      .then(setToken)
-      .catch(console.error);
+    instance.loginPopup({
+      scopes: ['User.Read', 'Files.Read', 'Sites.Read.All']
+    }).then(resp => {
+      instance.setActiveAccount(resp.account);
+      return api.getAccessToken(instance, resp.account);
+    }).then(setToken).catch(console.error);
   };
 
   const handleLogout = () => {
@@ -37,51 +39,66 @@ export default function App() {
     setToken(null);
   };
 
-  // Show login if not signed in
-  if (!accounts.length) {
+  // Search candidates and switch to candidates view
+  const handleSearch = async (keyword) => {
+    if (!keyword.trim()) return;
+    const results = await api.searchCandidatesApi(token, keyword);
+    setSearchResults(results);
+    setActivePage('candidates');
+  };
+
+  // If not logged in, show only Login button
+  if (accounts.length === 0) {
     return (
-      <div style={{ padding: 40, textAlign: 'center' }}>
-        <h2>ATS Portal</h2>
-        <LoginControl onLogin={handleLogin} />
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <button
+          onClick={handleLogin}
+          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          Login with Microsoft
+        </button>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 40, fontFamily: 'Arial, sans-serif' }}>
-      <header style={{ marginBottom: 24 }}>
-        <h2>ATS Portal</h2>
-        <LoginControl onLogout={handleLogout} />
-      </header>
+    <div className="flex h-screen bg-gray-100">
 
-      <nav style={{ marginBottom: 24 }}>
-        <button
-          onClick={() => setActivePanel('fetch')}
-          style={{
-            marginRight: 8,
-            fontWeight: activePanel === 'fetch' ? 'bold' : 'normal'
-          }}
-        >
-          Fetch Resumes
-        </button>
-        <button
-          onClick={() => setActivePanel('search')}
-          style={{
-            fontWeight: activePanel === 'search' ? 'bold' : 'normal'
-          }}
-        >
-          Search Candidates
-        </button>
-      </nav>
+      {/* Sidebar Drawer */}
+      <Sidebar
+        isOpen={sidebarOpen}
+        onToggleSidebar={() => setSidebarOpen(o => !o)}
+        activePage={activePage}
+        onNavigate={(page) => {
+          setActivePage(page);
+          if (page === 'candidates') setSearchResults(null);
+        }}
+      />
 
-      <section>
-        {activePanel === 'fetch' && token && (
-          <FetchPanel token={token} />
-        )}
-        {activePanel === 'search' && token && (
-          <SearchPanel token={token} />
-        )}
-      </section>
+      {/* Main Area */}
+      <div className="flex-1 flex flex-col">
+        <Navbar
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={() => setSidebarOpen(o => !o)}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          onSearch={handleSearch}
+          onLogout={handleLogout}
+          username={accounts[0].username}
+        />
+
+        <main className="flex-1 overflow-auto p-6">
+          {activePage === 'fetch' && token && (
+            <FetchPanel token={token} />
+          )}
+          {activePage === 'candidates' && token && (
+            <CandidateTable
+              token={token}
+              searchResults={searchResults}
+            />
+          )}
+        </main>
+      </div>
     </div>
   );
 }

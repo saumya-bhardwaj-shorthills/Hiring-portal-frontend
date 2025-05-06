@@ -1,3 +1,4 @@
+// src/components/FetchPanel.js
 import React, { useState } from 'react';
 import * as api from '../api/sharepoint';
 
@@ -5,8 +6,8 @@ export default function FetchPanel({ token }) {
   const [siteUrl, setSiteUrl] = useState('');
   const [files, setFiles] = useState([]);
   const [statusMap, setStatusMap] = useState({});
-  const [msg, setMsg] = useState('');
   const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState('');
 
   const handleFetch = async () => {
     setLoading(true);
@@ -20,9 +21,8 @@ export default function FetchPanel({ token }) {
       setMsg(`Fetched ${docs.length} files`);
     } catch {
       setMsg('Error fetching documents');
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   const handleParseAll = async () => {
@@ -30,7 +30,6 @@ export default function FetchPanel({ token }) {
     const siteId = await api.getSiteId(token, siteUrl);
     const drives = await api.getDrives(token, siteId);
     const drive = drives.find(d => d.name === 'Documents') || drives[0];
-
     const newStatus = {};
     for (const file of files) {
       newStatus[file.id] = 'parsing';
@@ -47,34 +46,43 @@ export default function FetchPanel({ token }) {
   };
 
   return (
-    <div>
-      <div style={{ marginBottom: 16 }}>
+    <div className="p-4 space-y-4">
+      <div className="flex space-x-2">
         <input
+          className="flex-1 p-2 border rounded"
           type="text"
-          placeholder="Enter SharePoint Site URL"
+          placeholder="https://yourdomain.sharepoint.com/sites/HR"
           value={siteUrl}
           onChange={e => setSiteUrl(e.target.value)}
-          style={{ width: '60%', padding: 8, marginRight: 8 }}
         />
-        <button onClick={handleFetch} disabled={loading || !siteUrl}>
-          Fetch Documents
+        <button
+          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          onClick={handleFetch}
+          disabled={loading || !siteUrl}
+        >
+          Fetch
         </button>
       </div>
 
       {files.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          <button onClick={handleParseAll} disabled={loading}>
-            Parse All
-          </button>
-        </div>
+        <button
+          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+          onClick={handleParseAll}
+          disabled={loading}
+        >
+          Parse All
+        </button>
       )}
 
-      {msg && <p>{msg}</p>}
+      {msg && <p className="text-gray-700">{msg}</p>}
 
-      <ul>
-        {files.map(file => (
-          <li key={file.id} style={{ marginBottom: 8 }}>
-            {file.name} — <em>{statusMap[file.id] || 'idle'}</em>
+      <ul className="space-y-2">
+        {files.map(f => (
+          <li key={f.id} className="p-2 border rounded flex justify-between">
+            <span>{f.name}</span>
+            <span className="italic">
+              {statusMap[f.id] || 'idle'}
+            </span>
           </li>
         ))}
       </ul>
