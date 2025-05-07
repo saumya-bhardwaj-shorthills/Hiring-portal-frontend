@@ -1,42 +1,40 @@
 import React from 'react';
-import { FiChevronLeft } from 'react-icons/fi';
+import { FiUsers, FiUploadCloud } from 'react-icons/fi';
+import logo from '../assets/logo.png';
 
-export default function Sidebar({ isOpen, onToggle, activePage, onNavigate }) {
+export default function Sidebar({ activePage, onNavigate }) {
   return (
-    <aside
-      className={`
-        flex flex-col bg-white border-r
-        transition-all duration-200
-        ${isOpen ? 'w-64' : 'w-0 overflow-hidden'}
-      `}
-    >
-      {/* Only render contents when open */}
-      {isOpen && (
-        <>
-          <div className="flex items-center justify-between p-4 border-b">
-            <h2 className="text-xl font-semibold">Menu</h2>
-            <button onClick={onToggle} className="p-2">
-              <FiChevronLeft size={20} />
-            </button>
-          </div>
-          <nav className="p-4 space-y-2">
-            <button
-              className={`block w-full text-left px-4 py-2 rounded hover:bg-gray-100
-                ${activePage === 'fetch' ? 'bg-gray-100 font-medium' : ''}`}
-              onClick={() => { onNavigate('fetch'); }}
-            >
-              Fetch Resumes
-            </button>
-            <button
-              className={`block w-full text-left px-4 py-2 rounded hover:bg-gray-100
-                ${activePage === 'candidates' ? 'bg-gray-100 font-medium' : ''}`}
-              onClick={() => { onNavigate('candidates'); }}
-            >
-              Candidates
-            </button>
-          </nav>
-        </>
-      )}
+    <aside className="w-64 bg-indigo-50 border-r border-gray-200 flex-shrink-0">
+      {/* BIG, CLEAR LOGO */}
+      <div className="h-32 flex items-center justify-center bg-indigo-100">
+        <img src={logo} alt="Company Logo" className="h-20 w-auto" />
+      </div>
+
+      {/* NAVIGATION */}
+      <nav className="px-4 py-6 space-y-2">
+        <button
+          onClick={() => onNavigate('candidates')}
+          className={`
+            flex items-center w-full px-4 py-2 rounded-lg transition
+            ${activePage==='candidates'
+              ? 'bg-indigo-200 text-indigo-800 font-semibold'
+              : 'text-indigo-700 hover:bg-indigo-100'}
+          `}
+        >
+          <FiUsers className="mr-3" /> All Candidates
+        </button>
+        <button
+          onClick={() => onNavigate('fetch')}
+          className={`
+            flex items-center w-full px-4 py-2 rounded-lg transition
+            ${activePage==='fetch'
+              ? 'bg-indigo-200 text-indigo-800 font-semibold'
+              : 'text-indigo-700 hover:bg-indigo-100'}
+          `}
+        >
+          <FiUploadCloud className="mr-3" /> Fetch Resumes
+        </button>
+      </nav>
     </aside>
   );
 }

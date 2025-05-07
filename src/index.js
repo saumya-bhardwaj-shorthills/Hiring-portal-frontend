@@ -1,4 +1,3 @@
-// src/index.js
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
@@ -11,8 +10,7 @@ import './index.css';
 const msalInstance = new PublicClientApplication(msalConfig);
 
 msalInstance.initialize().then(() => {
-  const container = document.getElementById('root');
-  createRoot(container).render(
+  createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <MsalProvider instance={msalInstance}>
         <App />

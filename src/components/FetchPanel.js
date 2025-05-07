@@ -1,131 +1,138 @@
-// src/components/FetchPanel.js
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { Button, TextInput, Label } from 'flowbite-react';
 import * as api from '../api/sharepoint';
 
 export default function FetchPanel({ token }) {
   const [sites, setSites] = useState([]);
-  const [selected, setSelected] = useState('');   // '' | 'new' | sitePk
-  const [newUrl, setNewUrl] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [url, setUrl] = useState('');
+  const [selected, setSelected] = useState(null);
   const [files, setFiles] = useState([]);
-  const [statusMap, setStatusMap] = useState({});
+  const [status, setStatus] = useState({});
   const [msg, setMsg] = useState('');
-  const [loading, setLoading] = useState(false);
 
-  // load saved sites on mount
   useEffect(() => {
     api.listSites(token).then(setSites);
   }, [token]);
 
-  // handle selecting an existing site
-  useEffect(() => {
-    if (selected && selected !== 'new') {
-      setFiles([]); setStatusMap({}); setMsg('');
-      setLoading(true);
-      api.fetchSiteResumes(token, selected)
-        .then(fs => {
-          setFiles(fs);
-          setMsg(`Found ${fs.length} unparsed resumes`);
-        })
-        .catch(() => setMsg('Error fetching resumes'))
-        .finally(() => setLoading(false));
-    }
-  }, [selected, token]);
-
-  const handleAddSite = async () => {
-    if (!newUrl.trim()) return;
-    setLoading(true); setMsg('');
+  const addSite = async () => {
     try {
-      const site = await api.addSite(token, newUrl);
-      setSites(prev => [...prev, site]);
-      setSelected(site.id.toString());
-      setNewUrl('');
+      const s = await api.addSite(token, url);
+      setSites(prev => [...prev, s]);
+      setUrl(''); setAdding(false);
     } catch {
-      setMsg('Error adding site');
-    } finally {
-      setLoading(false);
+      setMsg('Error saving site');
     }
   };
 
-  const handleParseAll = async () => {
-    if (!selected || selected === 'new') return;
-    setLoading(true);
-    const site = sites.find(s => s.id.toString() === selected);
-    const newStatus = {};
-    for (const f of files) {
-      newStatus[f.id] = 'parsing';
-      setStatusMap({ ...newStatus });
+  const selectSite = async s => {
+    setSelected(s); setFiles([]); setStatus({}); setMsg('');
+    try {
+      const fs = await api.fetchSiteResumes(token, s.id);
+      setFiles(fs);
+      setMsg(`Found ${fs.length} resumes`);
+    } catch {
+      setMsg('Error fetching resumes');
+    }
+  };
+
+  const parseAll = async () => {
+    if (!selected) return;
+    const m = {};
+    for (let f of files) {
+      m[f.id] = 'parsing'; setStatus({ ...m });
       try {
-        // reuse your existing parseResumeApi
-        const cand = await api.parseResumeApi(token, site.site_id, site.drive_id, f.id);
-        newStatus[f.id] = 'done';
+        await api.parseResumeApi(token, selected.site_id, selected.drive_id, f.id);
+        m[f.id] = 'done';
       } catch {
-        newStatus[f.id] = 'error';
+        m[f.id] = 'error';
       }
-      setStatusMap({ ...newStatus });
+      setStatus({ ...m });
     }
     setMsg('Parsing complete');
-    setLoading(false);
   };
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="space-y-8">
+      {/* SHAREPOINT SITES */}
+      <div className="bg-white p-6 rounded-lg shadow border-l-4 border-indigo-600">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-indigo-800">SharePoint Sites</h3>
+          <Button
+            size="sm"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            onClick={() => setAdding(a => !a)}
+          >
+            {adding ? 'Cancel' : 'Add New Site'}
+          </Button>
+        </div>
 
-      {/* Site selector */}
-      <div className="flex items-center space-x-2">
-        <select
-          className="p-2 border flex-1"
-          value={selected}
-          onChange={e => setSelected(e.target.value)}
-        >
-          <option value="">-- Choose site --</option>
-          <option value="new">+ Add new site</option>
-          {sites.map(s => (
-            <option key={s.id} value={s.id}>{s.site_url}</option>
-          ))}
-        </select>
-
-        {selected === 'new' && (
-          <>
-            <input
-              className="flex-1 p-2 border"
-              type="text"
-              placeholder="Paste SharePoint URL"
-              value={newUrl}
-              onChange={e => setNewUrl(e.target.value)}
-            />
-            <button
-              onClick={handleAddSite}
-              disabled={loading}
-              className="px-4 py-2 bg-green-600 text-white rounded"
+        {adding && (
+          <div className="flex items-end space-x-4 mb-6">
+            <div className="flex-1">
+              <Label htmlFor="site-url" value="Site URL" />
+              <TextInput
+                id="site-url"
+                placeholder="https://…/sites/HR"
+                value={url}
+                onChange={e => setUrl(e.target.value)}
+              />
+            </div>
+            <Button
+              size="sm"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              onClick={addSite}
             >
-              Save Site
-            </button>
-          </>
+              Save
+            </Button>
+          </div>
         )}
+
+        <div className="flex flex-wrap gap-2">
+          {sites.map(s => (
+            <Button
+              key={s.id}
+              size="sm"
+              outline={selected?.id !== s.id}
+              className={`
+                ${selected?.id === s.id
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-gray-100 text-indigo-700 hover:bg-indigo-50'}
+              `}
+              onClick={() => selectSite(s)}
+            >
+              {s.site_url}
+            </Button>
+          ))}
+        </div>
       </div>
 
-      {/* Parse All button */}
-      {selected && selected !== 'new' && files.length > 0 && (
-        <button
-          onClick={handleParseAll}
-          disabled={loading}
-          className="px-4 py-2 bg-blue-600 text-white rounded"
-        >
-          Parse All
-        </button>
+      {/* RESUME LIST */}
+      {selected && (
+        <div className="bg-white p-6 rounded-lg shadow border-l-4 border-green-600">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-green-800">
+              Resumes in {selected.site_url}
+            </h3>
+            <Button
+              size="sm"
+              className="bg-green-600 hover:bg-green-700 text-white"
+              onClick={parseAll}
+            >
+              Parse All
+            </Button>
+          </div>
+          {msg && <p className="text-gray-600 mb-2">{msg}</p>}
+          <ul className="space-y-2">
+            {files.map(f => (
+              <li key={f.id} className="flex justify-between text-gray-700">
+                <span>{f.name}</span>
+                <span className="italic">{status[f.id]||'idle'}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
-
-      {msg && <p className="text-gray-700">{msg}</p>}
-
-      {/* Resume list */}
-      <ul className="space-y-2">
-        {files.map(f => (
-          <li key={f.id} className="p-2 border rounded flex justify-between">
-            <span>{f.name}</span>
-            <span className="italic">{statusMap[f.id] || 'idle'}</span>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
